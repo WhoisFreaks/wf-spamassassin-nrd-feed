@@ -1,0 +1,9 @@
+# wf-nrd.pre — Load the WhoisFreaks NRD plugin for SpamAssassin
+#
+# Place this file at /etc/spamassassin/wf-nrd.pre
+# SpamAssassin loads all *.pre files before *.cf files.
+#
+# The second argument is the absolute path to the plugin .pm file,
+# which avoids any @INC lookup ambiguity.
+
+loadplugin Mail::SpamAssassin::Plugin::WhoisFreaksNRD /etc/spamassassin/WhoisFreaksNRD.pm

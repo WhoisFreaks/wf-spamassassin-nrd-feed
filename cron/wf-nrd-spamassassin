@@ -1,0 +1,17 @@
+# /etc/cron.d/wf-nrd-spamassassin
+# WhoisFreaks NRD feed — daily refresh for SpamAssassin
+#
+# Runs at 05:00 UTC — the ccTLD file for the previous day becomes available
+# at ~03:00 UTC; the 2-hour buffer ensures both gTLD and ccTLD files are
+# fully published before the fetch runs.
+# Fetches the last WINDOW_DAYS days of NRD data, rebuilds the domain list,
+# and sends SIGHUP to spamd to reload without restarting.
+#
+# Edit WINDOW_DAYS to control how many days of NRD data are kept (default: 10).
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+WINDOW_DAYS=10
+API_KEY_FILE=/etc/whoisfreaks/apikey
+
+0 5 * * * root /usr/local/bin/wf-nrd-sa-fetch.sh >> /var/log/wf-nrd-spamassassin.log 2>&1

@@ -1,0 +1,57 @@
+    # master.cf.snippet — Postfix SpamAssassin content filter
+        #
+        # Add the -o content_filter line to the existing smtp entry in /etc/postfix/master.cf,
+        # then append the spamassassin transport below it.
+        #
+        # ── Step 1: Edit /etc/postfix/master.cf ───────────────────────────────────────
+        # Find the smtp line (it looks like this by default):
+        #
+        #   smtp      inet  n       -       y       -       -       smtpd
+        #
+        # Change it to:
+        #
+        #   smtp      inet  n       -       y       -       -       smtpd
+        #     -o content_filter=spamassassin
+        #
+        # ── Step 2: Append the transport definition (below the smtp block) ─────────────
+        #
+        # spamassassin unix  -       n       n       -       -       pipe
+        #   user=spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f ${sender} ${recipient}
+        #
+        # ── What this does ─────────────────────────────────────────────────────────────
+        # After-queue content filter approach:
+        #   1. Postfix accepts the message into its queue.
+        #   2. Passes it to spamc (SpamAssassin client) via the pipe transport.
+        #   3. spamc scans the message and adds X-Spam-* headers.
+        #   4. spamc resubmits to Postfix via sendmail for final delivery.
+        #
+        # X-Spam-Status header added by SpamAssassin:
+        #   X-Spam-Status: Yes, score=8.3 required=5.0 tests=BAYES_99,WF_NRD_SENDER,...
+        #
+        # To also REJECT at SMTP time (before-queue), use spamass-milter instead:
+        #   See the milter configuration comments below.
+        #
+        # ── Optional: spamass-milter (before-queue, milter approach) ──────────────────
+        # Install: sudo apt install spamass-milter
+        #
+        # /etc/default/spamass-milter:
+        #   OPTIONS="-u spamass-milter -i 127.0.0.1 -r 15"
+        #   # -r 15 rejects messages scoring above 15 at SMTP time
+        #
+        # /etc/postfix/main.cf additions:
+        #   milter_default_action = accept
+        #   milter_protocol       = 6
+        #   smtpd_milters         = local:spamass/spamass.sock
+        #   non_smtpd_milters     = $smtpd_milters
+        #
+        # If you already have OpenDKIM / OpenDMARC milters, append — order matters:
+        #   smtpd_milters = local:opendkim/opendkim.sock,local:opendmarc/opendmarc.sock,local:spamass/spamass.sock
+        #
+        # ── X-Spam header action (Dovecot / Sieve) ────────────────────────────────────
+        # To move flagged mail to Junk automatically, add a Sieve rule:
+        #
+        #   require ["fileinto"];
+        #   if header :contains "X-Spam-Flag" "YES" {
+        #     fileinto "Junk";
+        #     stop;
+        #   }

@@ -1,0 +1,19 @@
+# wf-nrd.cf — WhoisFreaks NRD rule configuration for SpamAssassin
+#
+# Place this file at /etc/spamassassin/wf-nrd.cf
+# All *.cf files in /etc/spamassassin/ are loaded automatically.
+#
+# ── Plugin config ──────────────────────────────────────────────────────────────
+# Path to the NRD domain list maintained by wf-nrd-fetch.sh
+wf_nrd_list_file  /var/lib/spamassassin/nrd/nrd_domains.list
+
+# ── Rule definition ────────────────────────────────────────────────────────────
+# ifplugin guard: the rule is only active when the plugin is loaded.
+ifplugin Mail::SpamAssassin::Plugin::WhoisFreaksNRD
+
+  header   WF_NRD_SENDER  eval:check_wf_nrd_sender()
+  describe WF_NRD_SENDER  Sender domain is a newly registered domain (WhoisFreaks NRD)
+  tflags   WF_NRD_SENDER  net
+  score    WF_NRD_SENDER  3.5
+
+endif

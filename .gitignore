@@ -1,0 +1,25 @@
+# WhoisFreaks NRD Feed — SpamAssassin
+# Never commit API keys or domain data files
+
+# API key
+/apikey
+*.apikey
+.env
+
+# Generated domain lists and cache
+*.list
+*.list.tmp.*
+nrd_domains.*
+
+# Backup files created by install.sh
+*.bak.*
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
