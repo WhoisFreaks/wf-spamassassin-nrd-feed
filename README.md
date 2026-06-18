@@ -4,22 +4,27 @@
 
 [![Linux](https://img.shields.io/badge/Linux-any%20distro-FCC624?logo=linux&logoColor=black)](https://kernel.org)
 [![SpamAssassin](https://img.shields.io/badge/SpamAssassin-3.4%2B-orange)](https://spamassassin.apache.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/WhoisFreaks/wf-spamassassin-nrd-feed/blob/main/LICENSE)
 
 ---
 
 ## What this does
 
-This repository integrates the [WhoisFreaks Newly Registered Domains (NRD) Feed](https://whoisfreaks.com/products/newly-registered-domains.html) into Apache SpamAssassin as a custom Perl plugin. Every message whose sender domain appears on the NRD list receives an additional spam score — raising the bar for freshly registered, zero-reputation domains before any blocklist knows they exist.
+This repository integrates the [WhoisFreaks Newly Registered Domains (NRD) Feed](https://whoisfreaks.com/products/newly-registered-domains.html) into Apache SpamAssassin as a custom Perl plugin. Every message whose sender domain appears on the NRD list receives an additional spam score, raising the bar for freshly registered, zero-reputation domains before any blocklist knows they exist.
+
+Newly registered domains are disproportionately weaponized for phishing, business email compromise, and malware staging. Palo Alto Networks' Unit 42 [found that more than 70% of newly registered domains are malicious, suspicious, or not safe for work](https://unit42.paloaltonetworks.com/newly-registered-domains-malicious-abuse-by-bad-actors/), using a 32-day window as the period when an NRD is most likely to be flagged. This plugin gives SpamAssassin a signal for that window.
 
 The integration has four moving parts:
 
-| Component | File | Purpose |
-|---|---|---|
-| Fetch script | `fetch/wf-nrd-fetch.sh` | Downloads daily NRD data from the WhoisFreaks API, maintains a rolling cache, rebuilds the domain list file |
-| Perl plugin | `spamassassin/WhoisFreaksNRD.pm` | Loads the domain list at startup, checks each message's sender domain |
-| Rules file | `spamassassin/wf-nrd.cf` | Defines the `WF_NRD_SENDER` rule, score, and list path |
-| Cron job | `cron/wf-nrd-spamassassin` | Runs the fetch script daily at 05:00 UTC |
+| Component    | File                             | Purpose                                                                                                     |
+| ------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Fetch script | `fetch/wf-nrd-fetch.sh`          | Downloads daily NRD data from the WhoisFreaks API, maintains a rolling cache, rebuilds the domain list file |
+| Perl plugin  | `spamassassin/WhoisFreaksNRD.pm` | Loads the domain list at startup, checks each message's sender domain                                       |
+| Plugin loader | `spamassassin/wf-nrd.pre`       | The `loadplugin` directive that tells SpamAssassin to load the plugin                                       |
+| Rules file   | `spamassassin/wf-nrd.cf`         | Defines the `WF_NRD_SENDER` rule, score, and list path                                                      |
+| Cron job     | `cron/wf-nrd-spamassassin`       | Runs the fetch script daily at 05:00 UTC                                                                    |
+
+> **Note on the fetch script name:** the script ships in the repo as `fetch/wf-nrd-fetch.sh` and is installed to `/usr/local/bin/wf-nrd-sa-fetch.sh`. The `-sa-` suffix in the installed name keeps it distinct from the fetch scripts used by the other NRD integrations if you run more than one on the same host.
 
 ---
 
@@ -57,7 +62,7 @@ Postfix content filter
   score ≥ 15   → reject at SMTP (if spamass-milter -r 15 is set)
 ```
 
-The key design choice: `WF_NRD_SENDER` adds a **score**, not a hard block. A legitimate company that registered its domain two weeks ago and sends well-formed mail with good SPF/DKIM will score around 3.5 — not enough to be flagged. That same NRD sender with missing DKIM, a suspicious body, and a Bayes hit will score 9–12 and land in Junk or get rejected outright.
+The key design choice: `WF_NRD_SENDER` adds a **score**, not a hard block. A legitimate company that registered its domain two weeks ago and sends well-formed mail with good SPF/DKIM will score around 3.5, not enough to be flagged. That same NRD sender with missing DKIM, a suspicious body, and a Bayes hit will score 9 to 12 and land in Junk or get rejected outright.
 
 ---
 
@@ -71,13 +76,13 @@ The key design choice: `WF_NRD_SENDER` adds a **score**, not a hard block. A leg
 
 ### Supported distributions
 
-| Distro family | Tested on | Package manager | spamd service | spamd user |
-|---|---|---|---|---|
-| Debian / Ubuntu | Ubuntu 22.04+, Debian 12+ | `apt` | `spamassassin` | `debian-spamd` |
-| RHEL / CentOS / Rocky / Alma | Rocky 9, AlmaLinux 9, CentOS Stream 9 | `dnf` / `yum` | `spamassassin` | `spamd` |
-| Fedora | Fedora 39+ | `dnf` | `spamassassin` | `spamd` |
-| openSUSE / SLES | openSUSE Leap 15+ | `zypper` | `spamd` | `spamd` |
-| Arch Linux | Arch, Manjaro, EndeavourOS | `pacman` | `spamassassin` | `spamd` |
+| Distro family                | Tested on                             | Package manager | spamd service  | spamd user     |
+| ---------------------------- | ------------------------------------- | --------------- | -------------- | -------------- |
+| Debian / Ubuntu              | Ubuntu 22.04+, Debian 12+             | `apt`           | `spamassassin` | `debian-spamd` |
+| RHEL / CentOS / Rocky / Alma | Rocky 9, AlmaLinux 9, CentOS Stream 9 | `dnf` / `yum`   | `spamassassin` | `spamd`        |
+| Fedora                       | Fedora 39+                            | `dnf`           | `spamassassin` | `spamd`        |
+| openSUSE / SLES              | openSUSE Leap 15+                     | `zypper`        | `spamd`        | `spamd`        |
+| Arch Linux                   | Arch, Manjaro, EndeavourOS            | `pacman`        | `spamassassin` | `spamd`        |
 
 > **Note on spamass-milter:** Available in standard repos on Debian/Ubuntu. On RHEL-family, install EPEL first (`dnf install epel-release`). On Arch, it is in the AUR. The installer warns and skips gracefully if not found.
 
@@ -85,7 +90,7 @@ The key design choice: `WF_NRD_SENDER` adds a **score**, not a hard block. A leg
 
 ## Quick install
 
-```bash
+```
 git clone https://github.com/WhoisFreaks/wf-spamassassin-nrd-feed.git
 cd wf-spamassassin-nrd-feed
 sudo ./install.sh
@@ -95,14 +100,14 @@ Done in under 5 minutes. The installer automatically detects your Linux distribu
 
 **Optional environment variables:**
 
-```bash
+```
 sudo WINDOW_DAYS=30 REJECT_SCORE=15 ./install.sh
 ```
 
-| Variable | Default | Description |
-|---|---|---|
-| `WINDOW_DAYS` | `10` | Days of NRD history to keep in the rolling window |
-| `REJECT_SCORE` | `15` | Score above which spamass-milter rejects at SMTP time |
+| Variable       | Default | Description                                           |
+| -------------- | ------- | ----------------------------------------------------- |
+| `WINDOW_DAYS`  | `10`    | Days of NRD history to keep in the rolling window     |
+| `REJECT_SCORE` | `15`    | Score above which spamass-milter rejects at SMTP time |
 
 ---
 
@@ -112,7 +117,7 @@ If you prefer to install each piece yourself:
 
 ### 1. Install packages
 
-```bash
+```
 # Debian / Ubuntu
 sudo apt update && sudo apt install spamassassin spamass-milter postfix curl
 
@@ -133,7 +138,7 @@ sudo pacman -Sy spamassassin postfix curl
 
 ### 2. Store your API key
 
-```bash
+```
 sudo mkdir -p /etc/whoisfreaks
 echo "YOUR_API_KEY_HERE" | sudo tee /etc/whoisfreaks/apikey > /dev/null
 sudo chmod 600 /etc/whoisfreaks/apikey
@@ -141,7 +146,7 @@ sudo chmod 600 /etc/whoisfreaks/apikey
 
 ### 3. Copy config files
 
-```bash
+```
 # Fetch script
 sudo install -m 755 fetch/wf-nrd-fetch.sh /usr/local/bin/wf-nrd-sa-fetch.sh
 
@@ -156,14 +161,14 @@ sudo install -m 644 cron/wf-nrd-spamassassin /etc/cron.d/wf-nrd-spamassassin
 
 ### 4. Create the list directory
 
-```bash
+```
 sudo mkdir -p /var/lib/spamassassin/nrd
 sudo mkdir -p /var/cache/wf-nrd
 ```
 
 ### 5. Seed the domain list
 
-```bash
+```
 sudo WINDOW_DAYS=10 /usr/local/bin/wf-nrd-sa-fetch.sh
 ```
 
@@ -185,7 +190,7 @@ spamassassin unix  -       n       n       -       -       pipe
 
 ### 7. Enable and start services
 
-```bash
+```
 sudo systemctl enable spamassassin --now
 sudo systemctl enable spamass-milter --now
 sudo systemctl reload postfix
@@ -197,22 +202,22 @@ sudo systemctl reload postfix
 
 Edit `/etc/spamassassin/wf-nrd.cf` and change the `score` line:
 
-```cf
-score WF_NRD_SENDER  3.5   # default — adds 3.5 to messages from NRD senders
+```
+score WF_NRD_SENDER  3.5   # default: adds 3.5 to messages from NRD senders
 ```
 
 Common tuning options:
 
-| Score | Behaviour |
-|---|---|
-| `1.0` | Gentle signal — rarely tips into spam on its own |
-| `3.5` | Default — meaningful boost that stacks with other signals |
-| `5.0` | Aggressive — NRD sender alone triggers the spam threshold |
-| `0.0` | Disables the rule without removing it |
+| Score | Behaviour                                                 |
+| ----- | --------------------------------------------------------- |
+| `1.0` | Gentle signal, rarely tips into spam on its own           |
+| `3.5` | Default, meaningful boost that stacks with other signals  |
+| `5.0` | Aggressive, NRD sender alone triggers the spam threshold  |
+| `0.0` | Disables the rule without removing it                     |
 
 After changing the score, reload spamd:
 
-```bash
+```
 sudo systemctl kill --kill-who=main --signal=SIGHUP spamassassin
 ```
 
@@ -225,12 +230,12 @@ The `WINDOW_DAYS` setting in `/etc/cron.d/wf-nrd-spamassassin` controls how many
 Typical list sizes:
 
 | WINDOW_DAYS | Approx. domain count | File size |
-|---|---|---|
-| 1 | ~50–80K | ~2 MB |
-| 10 | ~500K–800K | ~20 MB |
-| 30 | ~1.5M–2M | ~60 MB |
+| ------------ | -------------------- | --------- |
+| 1            | ~50-80K              | ~2 MB     |
+| 10           | ~500K-800K           | ~20 MB    |
+| 30           | ~1.5M-2M             | ~60 MB    |
 
-SpamAssassin loads the list into a Perl hash at startup. Even at 2M domains this takes under 2 seconds and uses ~150 MB of RAM — acceptable for a dedicated mail server, but worth monitoring if resources are tight.
+SpamAssassin loads the list into a Perl hash at startup. Even at 2M domains this takes under 2 seconds and uses ~150 MB of RAM, acceptable for a dedicated mail server, but worth monitoring if resources are tight.
 
 ---
 
@@ -238,14 +243,14 @@ SpamAssassin loads the list into a Perl hash at startup. Even at 2M domains this
 
 **Check the plugin loaded:**
 
-```bash
+```
 spamassassin --lint -D 2>&1 | grep -i whoisfreaks
 # Expected: whoisfreaks-nrd: loaded XXXXXX domains from /var/lib/spamassassin/nrd/nrd_domains.list
 ```
 
 **Check the rule fires on a test domain:**
 
-```bash
+```
 # Create a test email from a domain you know is on the NRD list
 cat <<EOF | spamassassin -D 2>&1 | grep -i 'WF_NRD\|nrd'
 From: test@<nrd-domain-here>
@@ -266,7 +271,7 @@ X-Spam-Flag: YES
 
 **Watch the fetch log:**
 
-```bash
+```
 tail -f /var/log/wf-nrd-spamassassin.log
 ```
 
@@ -276,7 +281,7 @@ tail -f /var/log/wf-nrd-spamassassin.log
 
 If you use Dovecot with Sieve, add this rule to move flagged messages automatically:
 
-```sieve
+```
 require ["fileinto"];
 
 if header :contains "X-Spam-Flag" "YES" {
@@ -310,35 +315,39 @@ wf-spamassassin-nrd-feed/
 
 ## Coexistence with Rspamd
 
-If you are running Rspamd + Postfix (see [wf-rspamd-nrd-feed](https://github.com/WhoisFreaks/wf-rspamd-nrd-feed)), you do **not** need SpamAssassin as well — Rspamd is faster and uses less memory. This integration is for servers already running SpamAssassin as their primary filter, or legacy setups where replacing Rspamd isn't an option.
+If you are running Rspamd + Postfix (see [wf-rspamd-postfix-nrd-feed](https://github.com/WhoisFreaks/wf-rspamd-postfix-nrd-feed)), you do **not** need SpamAssassin as well. Rspamd is faster and uses less memory. This integration is for servers already running SpamAssassin as their primary filter, or legacy setups where switching to Rspamd isn't an option.
 
-If you are running both (uncommon but possible via Amavis), make sure the NRD score is only applied once — either configure the WF_NRD_SENDER score in SpamAssassin or the WF_NRD_SENDER multimap rule in Rspamd, not both.
+If you are running both (uncommon but possible via Amavis), make sure the NRD score is only applied once. Configure the `WF_NRD_SENDER` score in SpamAssassin or the `WF_NRD_SENDER` multimap rule in Rspamd, not both.
 
 ---
 
 ## Troubleshooting
 
 **Plugin not loading:**
-```bash
+
+```
 spamassassin --lint -D 2>&1 | grep -i 'error\|whoisfreaks'
 # Check paths in wf-nrd.pre match the actual .pm file location
 ```
 
 **List file empty after install:**
-```bash
+
+```
 cat /var/log/wf-nrd-spamassassin.log
 # Look for API key errors or HTTP failures
 ```
 
 **spamd not reloading after cron:**
-```bash
+
+```
 systemctl status spamassassin
 # If inactive, the SIGHUP in the fetch script won't find it
 # Fix: systemctl enable spamassassin --now
 ```
 
 **Score not appearing in headers:**
-```bash
+
+```
 spamassassin --lint
 # Check for syntax errors in wf-nrd.cf or wf-nrd.pre
 ```
@@ -347,9 +356,9 @@ spamassassin --lint
 
 ## Related integrations
 
-- [wf-pihole-nrd-feed](https://github.com/WhoisFreaks/wf-pihole-nrd-feed) — DNS-level blocking via Pi-hole
-- [wf-adguard-nrd-feed](https://github.com/WhoisFreaks/wf-adguard-nrd-feed) — DNS-level blocking via AdGuard Home
-- [wf-rspamd-nrd-feed](https://github.com/WhoisFreaks/wf-rspamd-nrd-feed) — High-performance email filtering via Rspamd + Postfix
+- [wf-pihole-nrd-feed](https://github.com/WhoisFreaks/wf-pihole-nrd-feed): DNS-level blocking via Pi-hole
+- [wf-adguard-nrd-feed](https://github.com/WhoisFreaks/wf-adguard-nrd-feed): DNS-level blocking via AdGuard Home
+- [wf-rspamd-postfix-nrd-feed](https://github.com/WhoisFreaks/wf-rspamd-postfix-nrd-feed): High-performance email filtering via Rspamd + Postfix
 
 ---
 
